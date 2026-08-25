@@ -1,10 +1,10 @@
 # Mesh Daily Question
 
-[![pages](https://img.shields.io/badge/live-baditaflorin.github.io%2Fmesh--daily--question-f4b942)](https://baditaflorin.github.io/mesh-daily-question/)
+[![pages](https://img.shields.io/badge/live-baditaflorin.github.io%2Fmesh--daily--question-92f0e2)](https://baditaflorin.github.io/mesh-daily-question/)
 [![version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/baditaflorin/mesh-daily-question/blob/main/package.json)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-> A browser-local daily question room for one thoughtful answer per peer.
+> A browser-local shared reflection room: one real daily question and one thoughtful answer per peer.
 
 **Live → https://baditaflorin.github.io/mesh-daily-question/**
 
@@ -26,11 +26,13 @@
 
 A **rootless-computing** peer-to-peer browser app. No backend of its own beyond the self-hosted WebRTC stack listed below. State lives in a Yjs mesh shared by everyone in the same room.
 
+The opening view is the room itself: today’s question, your response field, and the reflections already shared. Every peer may add one answer, choose whether to attach their display name, and appreciate another person’s entry. No account or central database is involved.
+
 Read the principles → **https://baditaflorin.github.io/rootless-computing/principles.html**
 
 ## Quickstart
 
-Open the live URL on two devices in the same room (set in ⚙ settings, or scan the room QR). Everything else is in-app.
+Open the live URL on two devices in the same room (set the room in Settings, or scan the room QR). Everything else is in-app.
 
 For local hacking:
 
@@ -63,12 +65,12 @@ The settings drawer lets the user override signaling and TURN endpoints. localSt
 
 If endpoints are blank or unreachable, the app falls back to STUN-only.
 
-## Version + commit on every screen
+## Version + commit
 
-The bottom-right footer on every screen of the live app shows:
+Open **Settings** to find the product metadata:
 
 - `source` → this repo
-- `tip ♥` → PayPal
+- `support` → PayPal
 - `vX.Y.Z · <short-sha>` — version from `package.json` plus the build-time git commit
 
 ## Build & deploy

@@ -1,6 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FocusEvent } from "react";
 import {
+  MeshButton,
+  MeshBottomBar,
+  MeshCluster,
   MeshNameInput,
+  MeshPresence,
+  MeshStatusPill,
+  MeshSurface,
   useNamedPeer,
   usePerPeerValue,
   useReactions,
@@ -30,6 +36,15 @@ export function promptForDate(date = new Date()): string {
   return PROMPTS[day % PROMPTS.length] ?? PROMPTS[0] ?? "What is on your mind today?";
 }
 
+export function reflectionDateLabel(date = new Date()): string {
+  return new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 export function isValidAnswer(value: unknown): value is DailyAnswer {
   if (!value || typeof value !== "object") return false;
   const answer = value as Record<string, unknown>;
@@ -49,7 +64,7 @@ function displayName(
   answer: DailyAnswer,
   nameOf: (id: string) => string | undefined,
 ) {
-  return answer.anonymous ? "Anonymous peer" : nameOf(peerId) || `Peer ${peerId.slice(0, 5)}`;
+  return answer.anonymous ? "Anonymous" : nameOf(peerId) || `Peer ${peerId.slice(0, 5)}`;
 }
 
 export function Feature({ room, config }: Props) {
@@ -62,7 +77,9 @@ export function Feature({ room, config }: Props) {
   const reactions = useReactions(room, "mesh-daily-question:reactions");
   const [draft, setDraft] = useState("");
   const [anonymous, setAnonymous] = useState(false);
-  const prompt = useMemo(() => promptForDate(), []);
+  const [today] = useState(() => new Date());
+  const prompt = promptForDate(today);
+  const dateLabel = reflectionDateLabel(today);
   const mine = isValidAnswer(answers.my) ? answers.my : null;
   const visibleAnswers = useMemo(
     () =>
@@ -78,30 +95,75 @@ export function Feature({ room, config }: Props) {
     answers.setMy({ text: draft.trim(), anonymous, submittedAt: Date.now() });
   }
 
+  function keepFocusedFieldClear(event: FocusEvent<HTMLElement>) {
+    const field = event.target;
+    const isTextField = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement;
+    if (!isTextField || !window.matchMedia("(max-width: 720px)").matches) return;
+    window.requestAnimationFrame(() => {
+      field.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+  }
+
   return (
     <main className="daily-page">
-      <header className="daily-hero">
-        <p className="eyebrow">One room · one question · today only</p>
-        <h1>Leave a small answer behind.</h1>
-        <p className="prompt" aria-live="polite">
-          {prompt}
-        </p>
-        <p className="connection" role="status">
-          {room
-            ? `Connected with ${room.peerCount} peer${room.peerCount === 1 ? "" : "s"}`
-            : "Connecting to the room…"}
-        </p>
-      </header>
+      <section className="daily-stage" aria-label="Today’s shared reflection">
+        <MeshSurface
+          as="section"
+          tone="accent"
+          padding="lg"
+          className="daily-question-card"
+          aria-labelledby="daily-question-heading"
+        >
+          <div className="daily-question-marker" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <MeshCluster className="daily-question-meta" justify="space-between">
+            <p className="eyebrow">Today’s shared reflection</p>
+            <MeshStatusPill tone={room ? "live" : "warning"} dot announce="polite">
+              {room ? "Room open" : "Joining room"}
+            </MeshStatusPill>
+          </MeshCluster>
+          <p className="daily-date">{dateLabel}</p>
+          <h1 id="daily-question-heading" aria-live="polite">
+            {prompt}
+          </h1>
+          <p className="daily-question-copy">
+            One honest answer from each peer. Leave yours, then take in what the room is holding
+            today.
+          </p>
+          <MeshPresence
+            count={room?.peerCount ?? 0}
+            label={room ? "peers in this room" : "peers joining"}
+            state={room ? "connected" : "connecting"}
+            announce="polite"
+            className="daily-presence"
+          />
+        </MeshSurface>
 
-      <section className="daily-grid" aria-label="Daily question">
-        <section className="card composer" aria-labelledby="answer-heading">
-          <p className="eyebrow">Your answer</p>
-          <h2 id="answer-heading">{mine ? "Your answer is in the room" : "Make it count once"}</h2>
+        <MeshSurface
+          as="section"
+          tone="raised"
+          padding="lg"
+          className="daily-composer"
+          aria-labelledby="answer-heading"
+          onFocusCapture={keepFocusedFieldClear}
+        >
+          <div className="daily-composer-heading">
+            <div>
+              <p className="eyebrow">Your answer</p>
+              <h2 id="answer-heading">
+                {mine ? "Your reflection is here." : "Add your reflection."}
+              </h2>
+            </div>
+            <span className="daily-once">One response</span>
+          </div>
           {mine ? (
             <>
-              <blockquote>{mine.text}</blockquote>
-              <p className="submitted" role="status">
-                Submitted once for this device. Daily answers cannot be edited or duplicated.
+              <blockquote className="daily-submitted-answer">{mine.text}</blockquote>
+              <p className="daily-composer-note" role="status">
+                You have shared your answer for today. It remains with this room.
               </p>
             </>
           ) : (
@@ -110,17 +172,21 @@ export function Feature({ room, config }: Props) {
                 label="Your name"
                 value={named.name}
                 onChange={named.setName}
-                placeholder="Optional display name"
+                placeholder="How should the room know you?"
                 maxLength={32}
+                showCounter
+                hint="Optional. Your name is shown unless you post anonymously."
               />
-              <label htmlFor="answer">Your response</label>
+              <label className="daily-response-label" htmlFor="answer">
+                Your response
+              </label>
               <textarea
                 id="answer"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value.slice(0, 280))}
                 maxLength={280}
-                rows={5}
-                placeholder="A few honest words…"
+                rows={4}
+                placeholder="Write the answer you would want to find later."
               />
               <div className="composer-footer">
                 <label className="anonymous">
@@ -133,57 +199,77 @@ export function Feature({ room, config }: Props) {
                 </label>
                 <span aria-live="polite">{draft.length}/280</span>
               </div>
-              <button className="primary" type="button" onClick={submit} disabled={!canSubmit}>
+              <MeshButton
+                fullWidth
+                size="lg"
+                className="daily-inline-submit"
+                onClick={submit}
+                disabled={!canSubmit}
+              >
                 Share today’s answer
-              </button>
-              <p className="submitted" role="status">
-                Anonymous mode hides your display name in this board. Answers remain visible to
-                everyone with this room link.
+              </MeshButton>
+              <p className="daily-composer-note" role="status">
+                Your answer is visible to everyone who has this room link.
               </p>
             </>
           )}
-        </section>
-
-        <section className="card answers" aria-labelledby="answers-heading">
-          <div className="answers-heading">
-            <div>
-              <p className="eyebrow">Room answers</p>
-              <h2 id="answers-heading">{visibleAnswers.length} shared</h2>
-            </div>
-            <span>{visibleAnswers.length === 1 ? "one voice" : "many voices"}</span>
-          </div>
-          {visibleAnswers.length ? (
-            <ol>
-              {visibleAnswers.map(([peerId, answer]) => {
-                const hearted = reactions.myReactionsOn(peerId).has("heart");
-                const count = reactions.countsFor(peerId).heart ?? 0;
-                return (
-                  <li key={peerId}>
-                    <article>
-                      <p className="author">
-                        {displayName(peerId, answer, named.nameOf)}
-                        {answer.anonymous && <span>anonymous</span>}
-                      </p>
-                      <p className="answer-text">{answer.text}</p>
-                      <button
-                        type="button"
-                        className="heart"
-                        onClick={() => reactions.toggle(peerId, "heart")}
-                        aria-pressed={hearted}
-                        aria-label={`${hearted ? "Remove" : "Add"} appreciation for this answer`}
-                      >
-                        ♥ <span>{count}</span>
-                      </button>
-                    </article>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="empty">No answer yet. The first thoughtful line changes the room.</p>
-          )}
-        </section>
+        </MeshSurface>
       </section>
+
+      {!mine ? (
+        <MeshBottomBar as="div" position="fixed" className="daily-mobile-action">
+          <MeshButton fullWidth size="lg" onClick={submit} disabled={!canSubmit}>
+            Share today’s answer
+          </MeshButton>
+        </MeshBottomBar>
+      ) : null}
+
+      <MeshSurface
+        as="section"
+        tone="base"
+        padding="lg"
+        className="daily-answers"
+        aria-labelledby="answers-heading"
+      >
+        <div className="answers-heading">
+          <div>
+            <p className="eyebrow">The room</p>
+            <h2 id="answers-heading">Shared reflections</h2>
+          </div>
+          <span>
+            {visibleAnswers.length} {visibleAnswers.length === 1 ? "answer" : "answers"}
+          </span>
+        </div>
+        {visibleAnswers.length ? (
+          <ol>
+            {visibleAnswers.map(([peerId, answer]) => {
+              const hearted = reactions.myReactionsOn(peerId).has("heart");
+              const count = reactions.countsFor(peerId).heart ?? 0;
+              return (
+                <li key={peerId}>
+                  <article>
+                    <p className="author">{displayName(peerId, answer, named.nameOf)}</p>
+                    <p className="answer-text">{answer.text}</p>
+                    <MeshButton
+                      type="button"
+                      variant={hearted ? "primary" : "secondary"}
+                      size="sm"
+                      className="appreciation"
+                      onClick={() => reactions.toggle(peerId, "heart")}
+                      aria-pressed={hearted}
+                      aria-label={`${hearted ? "Remove" : "Add"} appreciation for this answer`}
+                    >
+                      Appreciate <span aria-hidden="true">{count}</span>
+                    </MeshButton>
+                  </article>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="empty">The room is waiting for its first answer.</p>
+        )}
+      </MeshSurface>
     </main>
   );
 }
