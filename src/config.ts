@@ -2,6 +2,7 @@ import { createMeshConfig } from "@baditaflorin/mesh-common";
 
 export const config = createMeshConfig({
   appName: "mesh-daily-question",
+  breadcrumbs: false,
   displayName: "Daily Question",
   visualProfile: "gather",
   shellLayout: "inset",
